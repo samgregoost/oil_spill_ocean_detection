@@ -7,6 +7,9 @@ import read_MITSceneParsingData as scene_parsing
 import datetime
 import BatchDatsetReader as dataset
 from six.moves import xrange
+import cv2
+import os
+import shutil
 
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "2", "batch size for training")
@@ -15,12 +18,13 @@ tf.flags.DEFINE_string("data_dir", "Data_zoo/MIT_SceneParsing/", "path to datase
 tf.flags.DEFINE_float("learning_rate", "1e-4", "Learning rate for Adam Optimizer")
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
-tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize")
+tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize/predict")
+tf.flags.DEFINE_string('input', "test", "test")
 
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
 
 MAX_ITERATION = int(1e5 + 1)
-NUM_OF_CLASSESS = 151
+NUM_OF_CLASSESS = 2
 IMAGE_SIZE = 224
 
 
@@ -202,7 +206,7 @@ def main(argv=None):
                 print("Step: %d, Train_loss:%g" % (itr, train_loss))
                 train_writer.add_summary(summary_str, itr)
 
-            if itr % 500 == 0:
+            if itr % 70 == 0:
                 valid_images, valid_annotations = validation_dataset_reader.next_batch(FLAGS.batch_size)
                 valid_loss, summary_sva = sess.run([loss, loss_summary], feed_dict={image: valid_images, annotation: valid_annotations,
                                                        keep_probability: 1.0})
@@ -212,17 +216,63 @@ def main(argv=None):
                 validation_writer.add_summary(summary_sva, itr)
                 saver.save(sess, FLAGS.logs_dir + "model.ckpt", itr)
 
+    elif FLAGS.mode == "predict":
+        #keep_probability = tf.placeholder(tf.float32, name="keep_probabilty")
+        #image = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, 3], name="input_image")
+
+       
+
+        seg_dress_file = FLAGS.input
+        seg_dress_path = seg_dress_file.rsplit(".",1)[0]
+
+        segmented_dir = seg_dress_path+"_analyzed/"
+        if os.path.exists(segmented_dir):
+            shutil.rmtree(segmented_dir)
+        os.makedirs(segmented_dir)
+        img = cv2.imread(FLAGS.input)
+        tempImg = img.copy()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        valid_images = cv2.resize(img,(224,224))
+        valid_images = np.expand_dims(valid_images, axis=0)
+    
+        pred = sess.run(pred_annotation, feed_dict={image: valid_images,keep_probability: 1.0})
+        
+        #tf.reset_default_graph()
+        pred = np.squeeze(pred, axis=3)
+        annot = pred[0].astype(np.uint8)
+        annot[annot==1]=100
+        utils.save_image(annot.astype(np.uint8), FLAGS.logs_dir, name="test_" + str(5))
+                         
+        utils.save_image(pred[0].astype(np.uint8), FLAGS.logs_dir, name="pred_" + str(5))
+        img = cv2.imread(os.path.join(FLAGS.logs_dir, "test_" + str(5) + ".png"), 0)
+        arr = np.array([])
+        scaledImage = cv2.normalize(img, arr ,alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        backtorgb = cv2.applyColorMap(scaledImage, cv2.COLORMAP_HSV)
+        scaledImage2 = cv2.resize(scaledImage, (tempImg.shape[1], tempImg.shape[0]))
+        cv2.imwrite(segmented_dir + 'color.png', scaledImage2)
+        file = open(segmented_dir + 'Data.txt','w')
+        file.write('Oil area ratio: ' + str(np.count_nonzero(annot)/(224.0*224.0)))
+        file.close() 
+
+            
     elif FLAGS.mode == "visualize":
-        valid_images, valid_annotations = validation_dataset_reader.get_random_batch(FLAGS.batch_size)
+        valid_images, valid_annotations = validation_dataset_reader.get_random_batch(20)
         pred = sess.run(pred_annotation, feed_dict={image: valid_images, annotation: valid_annotations,
                                                     keep_probability: 1.0})
         valid_annotations = np.squeeze(valid_annotations, axis=3)
         pred = np.squeeze(pred, axis=3)
 
-        for itr in range(FLAGS.batch_size):
+        for itr in range(20):
             utils.save_image(valid_images[itr].astype(np.uint8), FLAGS.logs_dir, name="inp_" + str(5+itr))
             utils.save_image(valid_annotations[itr].astype(np.uint8), FLAGS.logs_dir, name="gt_" + str(5+itr))
             utils.save_image(pred[itr].astype(np.uint8), FLAGS.logs_dir, name="pred_" + str(5+itr))
+            annot = valid_annotations[itr].astype(np.uint8)
+            annot[annot==1]=100
+            prediction = pred[itr].astype(np.uint8)
+            prediction[prediction == 1] = 100
+            print(prediction)
+            utils.save_image(prediction, FLAGS.logs_dir, name="prede_" + str(5+itr))
+            utils.save_image(annot, FLAGS.logs_dir, name="annot_" + str(5+itr))
             print("Saved image: %d" % itr)
 
 

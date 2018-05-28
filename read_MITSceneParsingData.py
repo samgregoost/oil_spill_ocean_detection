@@ -51,13 +51,13 @@ def create_image_lists(image_dir):
             print('No files found')
         else:
             for f in file_list:
-                filename = os.path.splitext(f.split("/")[-1])[0]
-                annotation_file = os.path.join(image_dir, "annotations", directory, filename + '.png')
+                filename = os.path.splitext(f.split("\\")[-1])[0]
+                annotation_file = os.path.join(image_dir, "annotations", directory, filename + '.jpeg')
                 if os.path.exists(annotation_file):
                     record = {'image': f, 'annotation': annotation_file, 'filename': filename}
                     image_list[directory].append(record)
                 else:
-                    print("Annotation file not found for %s - Skipping" % filename)
+                    print("Annotation file not found for %s - Skipping" % annotation_file)
 
         random.shuffle(image_list[directory])
         no_of_images = len(image_list[directory])
