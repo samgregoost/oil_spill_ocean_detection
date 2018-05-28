@@ -18,7 +18,7 @@ tf.flags.DEFINE_string("data_dir", "Data_zoo/MIT_SceneParsing/", "path to datase
 tf.flags.DEFINE_float("learning_rate", "1e-4", "Learning rate for Adam Optimizer")
 tf.flags.DEFINE_string("model_dir", "Model_zoo/", "Path to vgg model mat")
 tf.flags.DEFINE_bool('debug', "False", "Debug mode: True/ False")
-tf.flags.DEFINE_string('mode', "train", "Mode train/ test/ visualize/predict")
+tf.flags.DEFINE_string('mode', "predict", "Mode train/ test/ visualize/predict")
 tf.flags.DEFINE_string('input', "test", "test")
 
 MODEL_URL = 'http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'
@@ -249,7 +249,9 @@ def main(argv=None):
         scaledImage = cv2.normalize(img, arr ,alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
         backtorgb = cv2.applyColorMap(scaledImage, cv2.COLORMAP_HSV)
         scaledImage2 = cv2.resize(scaledImage, (tempImg.shape[1], tempImg.shape[0]))
+        edges = cv2.Canny(scaledImage2, 100,100)
         cv2.imwrite(segmented_dir + 'color.png', scaledImage2)
+        cv2.imwrite(segmented_dir + 'edges.png', edges)
         file = open(segmented_dir + 'Data.txt','w')
         file.write('Oil area ratio: ' + str(np.count_nonzero(annot)/(224.0*224.0)))
         file.close() 
